@@ -1,0 +1,15 @@
+<RCC>
+  <qresource prefix="images">
+    <file alias="scaffold">images/scaffold.png</file>
+    <file alias="2">images/body1.png</file>
+    <file alias="3">images/body2.png</file>
+    <file alias="4">images/body3.png</file>
+    <file alias="5">images/body4.png</file>
+    <file alias="deadHead">images/headDead.png</file>
+    <file alias="6">images/body5.png</file>
+    <file alias="liveHead">images/headLiving.png</file>
+    <file>images/Gear-icon-291x300.png</file>
+    <file>images/scaffold.png</file>
+    <file>images/restartIcon.png</file>
+  </qresource>
+</RCC>
