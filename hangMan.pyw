@@ -4,6 +4,7 @@ from sys import argv, exit
 from os import path
 from logging import basicConfig, getLogger, DEBUG, INFO, CRITICAL
 from pickle import dump, load
+from random import choice
 import hangManResources_rc
 from PyQt5 import QtGui, uic
 from PyQt5.QtCore import pyqtSlot, QSettings, Qt, QTimer, QCoreApplication
@@ -18,7 +19,7 @@ numberOfPlayersDefault = 2
 wordListDefault = ["sasquatch"]
 wrongGuessMaxCountDefault = 6
 maxWordLengthDefault = 15
-
+maxNumberOfPlayers = 5
 
 class PyQtStarter(QMainWindow):
     """A basic shell for a PyQt Project."""
@@ -47,11 +48,16 @@ class PyQtStarter(QMainWindow):
 
         self.gameOver = False
         self.gameWon = False
+        self.alerts = ""
+        self.winCounts = [0] * 5
         self.usedWords = []
         self.availableWords = []
-        self.currentWord = "sasquatch"
+        self.currentPlayer = 1
+        self.currentWord = ''
         self.currentWrongGuessCount = 0
         self.currentCorrectGuessCount = 0
+        self.currentWrongGuessCounts = [0] * 5
+        self.currentCorrectGuessCounts = [0] * 5
         self.highlightedLetterButton = None
         self.letterPositionsVisible = [False] * 15
         self.letterPositionsValues = [""] * 15
@@ -68,13 +74,29 @@ class PyQtStarter(QMainWindow):
                                   self.letterU_UI, self.letterV_UI, self.letterW_UI, self.letterX_UI, self.letterY_UI,
                                   self.letterZ_UI
                                   ]
-
+        self.playerIndicatorUI = [self.player1IndicatorUI, self.player2IndicatorUI, self.player3IndicatorUI,
+                              self.player4IndicatorUI, self.player5IndicatorUI]
+        self.rightCountsUI = [self.player1RightUI, self.player2RightUI, self.player3RightUI,
+                              self.player4RightUI, self.player5RightUI]
+        self.wrongCountsUI = [self.player1WrongUI, self.player2WrongUI, self.player3WrongUI,
+                              self.player4WrongUI, self.player5WrongUI]
+        self.indicatorStyleStrings = ["color:rgba(255, 0, 0, 0.25);",
+                                      "color:rgba(0, 0, 255, 0.25);",
+                                      "color:rgba(0, 255, 0, 0.25);",
+                                      "color:rgba(253, 128, 8, 0.25);",
+                                      "color: rgba(128, 0, 128, 0.25);",
+                                      "color:rgba(255, 0, 0, 1.0);",
+                                      "color:rgba(0, 0, 255, 1.0);",
+                                      "color:rgba(0, 255, 0, 1.0);",
+                                      "color:rgba(253, 128, 8, 1.0);",
+                                      "color: rgba(128, 0, 128, 1.0);"
+                                      ]
         # This will connect all of the letter buttons to one slot (Event Handler).
         # This eliminates the need for 26 event handling methods! :-)
         for letterButtonName in self.letterButtonNames:
             letterButtonName.clicked.connect(self.letterClicked)
 
-        self.initializeLetterSlots((maxWordLengthDefault - len(self.currentWord)) // 2, len(self.currentWord))
+        self.startNewGame()
         self.preferencesSelectButton.clicked.connect(self.preferencesSelectButtonClickedHandler)
         self.guessButton.clicked.connect(self.guessButtonClickedHandler)
 
@@ -92,6 +114,7 @@ class PyQtStarter(QMainWindow):
                 buttonName.setEnabled(False)
             else:
                 buttonName.setStyleSheet("color: black")
+                buttonName.setEnabled(True)
         if self.highlightedLetterButton is not None:
             self.highlightedLetterButton.setStyleSheet("color: red")
         if self.currentWrongGuessCount < 1:
@@ -108,10 +131,49 @@ class PyQtStarter(QMainWindow):
             if self.letterPositionsVisible[position]:
                 slotName.setStyleSheet("background-color: transparent; color: black")
 
+        for index in range(0, self.numberOfPlayers):
+            self.rightCountsUI[index].setText(str(self.currentCorrectGuessCounts[index]))
+            self.wrongCountsUI[index].setText(str(self.currentWrongGuessCounts[index]))
+            if index + 1 == self.currentPlayer:     # Set opacity to full
+                self.playerIndicatorUI[index].setStyleSheet(self.indicatorStyleStrings[index + maxNumberOfPlayers])
+            else:                                   # Set opacity to 1/4
+                self.playerIndicatorUI[index].setStyleSheet(self.indicatorStyleStrings[index])
+
         if self.gameOver:
             self.guessButton.setEnabled(False)
         else:
             self.guessButton.setEnabled(True)
+
+        if self.alerts != '':
+            self.statusBarUI.showMessage(self.alerts)
+            self.statusBarTimer = QTimer()
+            self.statusBarTimer.singleShot(6500, self.clearStatusBar)
+
+    def startNewGame(self):
+        try:
+            self.currentWord = choice(self.wordList)
+            print(f"Current word: {self.currentWord}")
+        except IndexError:
+            self.logger.info("Recycling word list.")
+            self.wordList = self.usedWords
+            self.usedWords = []
+        self.wordList.remove(self.currentWord)
+        self.usedWords.append(self.currentWord)
+        self.gameOver = False
+        self.gameWon = False
+        self.currentWrongGuessCount = 0
+        self.currentCorrectGuessCount = 0
+        self.currentWrongGuessCounts = [0] * 5
+        self.currentCorrectGuessCounts = [0] * 5
+        self.highlightedLetterButton = None
+        self.letterPositionsVisible = [False] * 15
+        self.clearLetterButtons()
+        self.initializeLetterSlots((self.maxWordLength - len(self.currentWord)) // 2, len(self.currentWord))
+        self.updateUI()
+
+    def clearLetterButtons(self):
+        self.usedLetters = []
+        self.usedLetterButtons = []
 
     def initializeLetterSlots(self, startingPosition, letterCount):
         for position in range(0, startingPosition):
@@ -199,21 +261,47 @@ class PyQtStarter(QMainWindow):
             self.usedLetters.append(guessedLetter)
             self.highlightedLetterButton = None
             if guessedLetter.lower() not in self.currentWord:
-                self.currentWrongGuessCount += 1
-                print(f"Guessed incorrectly Right: {self.currentCorrectGuessCount} Wrong: {self.currentWrongGuessCount}")
+                self.currentWrongGuessCounts[self.currentPlayer - 1] += 1
+                self.currentWrongGuessCount = sum(self.currentWrongGuessCounts)
+                print(f"Guessed correctly Right: {self.currentCorrectGuessCount} Wrong: {self.currentWrongGuessCount}")
+                print(f"Guessed incorrectly Right: {self.currentCorrectGuessCounts} Wrong: {self.currentWrongGuessCounts}")
                 if self.currentWrongGuessCount >= wrongGuessMaxCountDefault:
-                    self.gameOver = True
+                    self.declareGameOver(False)
+                self.currentPlayer += 1
+                self.currentPlayer = 1 if self.currentPlayer > self.numberOfPlayers else self.currentPlayer
+                # Switch player on wrong guess. self.currentPlayer is 1 indexed.
+
+
             else:
                 for position, letter in enumerate(self.letterPositionsValues):
                     if letter.lower() == guessedLetter:
                         self.letterPositionsVisible[position] = True
-                        self.currentCorrectGuessCount += 1
+                        self.currentCorrectGuessCounts[self.currentPlayer - 1] += 1
+                        self.currentCorrectGuessCount = sum(self.currentCorrectGuessCounts)
                         print(f"Guessed correctly Right: {self.currentCorrectGuessCount} Wrong: {self.currentWrongGuessCount}")
+                        print(f"Guessed correctly Right: {self.currentCorrectGuessCounts} Wrong: {self.currentWrongGuessCounts}")
                         if self.currentCorrectGuessCount == len(self.currentWord):
-                            self.gameWon = True
+                            self.declareGameOver(True)
         else:
             self.logger.critical("Guessed letter was None")
+        if self.gameOver:
+            self.restartTimer = QTimer()
+            self.restartTimer.singleShot(6500, self.startNewGame)
+        self.updateUI()
 
+    def declareGameOver(self, won):
+        self.gameOver = True
+        self.gameWon = won
+        if won:
+            self.alerts = f"Player {self.currentPlayer} won!!"
+        else:
+            self.alerts = f"Player {self.currentPlayer} lost."
+        self.letterPositionsVisible = [True] * 15
+
+    def clearStatusBar(self):
+        print("Clearing the status bar")
+        self.alerts = ""
+        self.statusBarUI.clearMessage()
         self.updateUI()
 
     @pyqtSlot()	   # Tells PyQT that we don't want the optional argument, and only want one signal for this autoconnect.
