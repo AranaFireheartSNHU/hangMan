@@ -97,11 +97,8 @@ class PyQtStarter(QMainWindow):
         self.mapper = QSignalMapper()
         for buttonNumber, buttonName in enumerate(self.letterButtonNames):
             buttonName.clicked.connect(self.mapper.map)
-            mappedLetter = ascii_lowercase[buttonNumber]
             self.mapper.setMapping(buttonName, ascii_lowercase[buttonNumber])
         self.mapper.mapped[str].connect(self.letterClicked)
-        # for letterButtonName in self.letterButtonNames:
-        #     letterButtonName.clicked.connect(self.letterClicked)
 
         self.startNewGame()
         self.preferencesSelectButton.clicked.connect(self.preferencesSelectButtonClickedHandler)
@@ -314,7 +311,6 @@ class PyQtStarter(QMainWindow):
     @pyqtSlot(str)
     def letterClicked(self, clickedLetter):
         sender = self.sender().mapping(clickedLetter)
-        # sender = self.highlightedLetterButton[ascii_lowercase.index(clickedLetter)]
         self.highlightedLetter = clickedLetter
         if sender in self.letterButtonNames:
             print(clickedLetter)
