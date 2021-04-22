@@ -7,7 +7,7 @@ from pickle import dump, load
 from random import choice
 import hangManResources_rc
 from PyQt5 import QtGui, uic
-from PyQt5.QtCore import pyqtSlot, QSettings, Qt, QTimer, QCoreApplication
+from PyQt5.QtCore import pyqtSlot, QSettings, Qt, QTimer, QCoreApplication, QSignalMapper
 from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, QMessageBox
 
 startingDummyVariableDefault = 100
@@ -59,6 +59,7 @@ class PyQtStarter(QMainWindow):
         self.currentWrongGuessCounts = [0] * 5
         self.currentCorrectGuessCounts = [0] * 5
         self.highlightedLetterButton = None
+        self.highlightedLetter = ""
         self.letterPositionsVisible = [False] * 15
         self.letterPositionsValues = [""] * 15
         self.usedLetters = []
@@ -93,8 +94,14 @@ class PyQtStarter(QMainWindow):
                                       ]
         # This will connect all of the letter buttons to one slot (Event Handler).
         # This eliminates the need for 26 event handling methods! :-)
-        for letterButtonName in self.letterButtonNames:
-            letterButtonName.clicked.connect(self.letterClicked)
+        self.mapper = QSignalMapper()
+        for buttonNumber, buttonName in enumerate(self.letterButtonNames):
+            buttonName.clicked.connect(self.mapper.map)
+            mappedLetter = ascii_lowercase[buttonNumber]
+            self.mapper.setMapping(buttonName, ascii_lowercase[buttonNumber])
+        self.mapper.mapped[str].connect(self.letterClicked)
+        # for letterButtonName in self.letterButtonNames:
+        #     letterButtonName.clicked.connect(self.letterClicked)
 
         self.startNewGame()
         self.preferencesSelectButton.clicked.connect(self.preferencesSelectButtonClickedHandler)
@@ -166,6 +173,7 @@ class PyQtStarter(QMainWindow):
         self.currentWrongGuessCounts = [0] * 5
         self.currentCorrectGuessCounts = [0] * 5
         self.highlightedLetterButton = None
+        self.highlightedLetter = ""
         self.letterPositionsVisible = [False] * 15
         self.clearLetterButtons()
         self.initializeLetterSlots((self.maxWordLength - len(self.currentWord)) // 2, len(self.currentWord))
@@ -255,9 +263,9 @@ class PyQtStarter(QMainWindow):
             self.appSettings.setValue('pickleFilename', self.pickleFilename)
 
     def guessButtonClickedHandler(self):
-        self.usedLetterButtons.append(self.highlightedLetterButton)
         if self.highlightedLetterButton is not None:
-            guessedLetter = ascii_lowercase[self.letterButtonNames.index(self.highlightedLetterButton)]
+            self.usedLetterButtons.append(self.highlightedLetterButton)
+            guessedLetter = self.highlightedLetter
             self.usedLetters.append(guessedLetter)
             self.highlightedLetterButton = None
             if guessedLetter.lower() not in self.currentWord:
@@ -270,7 +278,6 @@ class PyQtStarter(QMainWindow):
                 self.currentPlayer += 1
                 self.currentPlayer = 1 if self.currentPlayer > self.numberOfPlayers else self.currentPlayer
                 # Switch player on wrong guess. self.currentPlayer is 1 indexed.
-
 
             else:
                 for position, letter in enumerate(self.letterPositionsValues):
@@ -304,11 +311,13 @@ class PyQtStarter(QMainWindow):
         self.statusBarUI.clearMessage()
         self.updateUI()
 
-    @pyqtSlot()	   # Tells PyQT that we don't want the optional argument, and only want one signal for this autoconnect.
-    def letterClicked(self):
-        sender = self.sender()
+    @pyqtSlot(str)
+    def letterClicked(self, clickedLetter):
+        sender = self.sender().mapping(clickedLetter)
+        # sender = self.highlightedLetterButton[ascii_lowercase.index(clickedLetter)]
+        self.highlightedLetter = clickedLetter
         if sender in self.letterButtonNames:
-            print(sender.text())
+            print(clickedLetter)
             self.highlightedLetterButton = sender
         else:
             self.logger.critical(f"Unknown letter sent by {self.sender()}")
